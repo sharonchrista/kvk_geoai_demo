@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>9272723049</name>
+  <Placemark>
+    <name>Baban Krushna Thorat</name>
+    <Polygon>
+      <tessellate>1</tessellate>
+      <outerBoundaryIs>
+        <LinearRing>
+          <coordinates>
+            74.9503469192708,18.52261107714152,0
+            74.95107803044344,18.52252645764522,0
+            74.95205222120882,18.52245769583246,0
+            74.9519225996354,18.52282641799784,0
+            74.95013851410583,18.52300776464107,0
+            74.9501246257533,18.52266104411655,0
+            74.9503469192708,18.52261107714152,0
+          </coordinates>
+        </LinearRing>
+      </outerBoundaryIs>
+    </Polygon>
+  </Placemark>
+</Document>
+</kml>

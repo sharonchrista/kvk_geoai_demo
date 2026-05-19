@@ -1,0 +1,29 @@
+# Web framework
+fastapi
+uvicorn[standard]
+pydantic
+
+# Database
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+python-dotenv
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Geometry & coordinate correction
+shapely
+pyproj
+lxml
+
+# Data loading
+pandas
+xlrd
+openpyxl
+httpx
+
+# Testing
+pytest
+pytest-asyncio

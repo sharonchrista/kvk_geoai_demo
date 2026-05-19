@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>16_Yuvraj_Aanandrao_Warake.kml</name>
+	<Style id="default">
+	</Style>
+	<StyleMap id="default0">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#default</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#hl</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="hl">
+		<IconStyle>
+			<scale>1.2</scale>
+		</IconStyle>
+	</Style>
+	<Placemark>
+		<name>Yuvraj Aanandrao Warake</name>
+		<styleUrl>#default0</styleUrl>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						74.13870444803069,16.4418573733946,0 74.13870515073643,16.44185010956418,0 74.13870602573624,16.44184106473097,0 74.13870672303446,16.44183385655316,0 74.13870776454222,16.44182309044574,0 74.13870862843314,16.44181416051024,0 74.13870948861828,16.44180526851329,0 74.13871034520432,16.44179641400528,0 74.1387019534893,16.44185015569328,0 74.13870017722714,16.44185199242952,0 74.138676032283,16.44171898065382,0 74.13869790792711,16.44150718502735,0 74.13880026012025,16.44120532099457,0 74.13930000000001,16.4412,0 74.13935103653755,16.44119021917374,0 74.13941958768137,16.44181647172961,0 74.13928131516913,16.44184509808492,0 74.13870444803069,16.4418573733946,0 
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+		<atom:link rel="app" href="https://www.google.com/earth/about/versions/#earth-pro" title="Google Earth Pro 7.3.7.1155"></atom:link>
+	</Placemark>
+</Document>
+</kml>

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KVK GeoAI Demo — Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g900:#0d3b1a;--g800:#1a5e2a;--g700:#236b30;--g600:#2e7d32;
+  --g500:#388e3c;--g400:#4caf50;--g300:#81c784;--g200:#c8e6c9;
+  --g100:#e8f5e9;--g50:#f1f8f2;
+  --text:#1a2e1a;--mid:#3a5c3a;--light:#6a8e6a;
+  --surface:#fff;--bg:#f0f7f0;--border:#d4e8d4;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:linear-gradient(135deg,var(--g900),var(--g700));
+  height:60px;padding:0 20px;
+  display:flex;align-items:center;gap:14px;
+  position:sticky;top:0;z-index:1000;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+}
+.topbar-logo{font-size:22px}
+.topbar-title{font-size:1.15rem;font-weight:700;color:#fff;flex:1}
+.topbar-sub{font-size:.72rem;color:rgba(255,255,255,.65)}
+.topbar-farmer{
+  font-size:.82rem;font-weight:600;color:rgba(255,255,255,.9);
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  border-radius:20px;padding:4px 14px;
+}
+.btn-logout{
+  background:transparent;border:1px solid rgba(255,255,255,.3);
+  color:rgba(255,255,255,.8);border-radius:8px;padding:5px 12px;
+  font-size:.75rem;font-weight:600;cursor:pointer;
+  transition:background .15s;
+}
+.btn-logout:hover{background:rgba(255,255,255,.15)}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 60px);overflow:hidden}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.map-area{display:flex;flex-direction:column;position:relative}
+
+/* ── SIDEBAR SECTIONS ── */
+.s-section{padding:16px 18px;border-bottom:1px solid var(--border)}
+.s-label{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--light);margin-bottom:10px}
+
+/* Loading & error */
+.loading-state{padding:40px 20px;text-align:center;color:var(--light)}
+.spinner{width:36px;height:36px;border:3px solid var(--g200);border-top-color:var(--g600);
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-state{padding:20px;background:#ffebee;border-radius:10px;color:#b71c1c;font-size:.85rem;margin:16px}
+
+/* Farmer name block */
+.farmer-name{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--g800);line-height:1.2;margin-bottom:8px}
+.meta-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:0}
+.meta-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--g100);border:1px solid var(--g200);
+  border-radius:20px;padding:3px 10px;font-size:.7rem;color:var(--g700);font-weight:500;
+}
+
+/* Info grid */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info-item{background:var(--g50);border:1px solid var(--border);border-radius:10px;padding:9px 11px}
+.info-item.full{grid-column:span 2}
+.il{font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--light);margin-bottom:2px}
+.iv{font-size:.85rem;font-weight:600;color:var(--text)}
+.iv.small{font-size:.78rem;font-weight:400;line-height:1.4}
+
+/* Health card */
+.health-card{border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;border:2px solid}
+.health-card.healthy{background:#e8f5e9;border-color:#a5d6a7}
+.health-card.moderate{background:#fff3e0;border-color:#ffcc80}
+.health-card.poor{background:#ffebee;border-color:#ef9a9a}
+.health-icon{font-size:2rem;flex-shrink:0}
+.health-label{font-size:1.25rem;font-weight:800}
+.health-label.healthy{color:#2e7d32}
+.health-label.moderate{color:#e65100}
+.health-label.poor{color:#b71c1c}
+.health-sub{font-size:.72rem;color:var(--light);margin-top:2px}
+
+/* NDVI meter */
+.meter-bar-wrap{position:relative;height:20px;border-radius:10px;margin-bottom:4px}
+.meter-bg{height:100%;border-radius:10px;
+  background:linear-gradient(90deg,#b71c1c 0%,#e65100 25%,#f9a825 50%,#388e3c 80%,#1b5e20 100%)}
+.meter-mask{position:absolute;top:0;right:0;height:100%;
+  background:rgba(255,255,255,.6);border-radius:0 10px 10px 0;
+  transition:width .9s cubic-bezier(.34,1.56,.64,1)}
+.meter-ptr{position:absolute;top:-7px;transform:translateX(-50%);
+  transition:left .9s cubic-bezier(.34,1.56,.64,1)}
+.meter-bubble{background:var(--g700);color:#fff;border-radius:5px;
+  padding:1px 6px;font-size:.68rem;font-weight:800}
+.meter-tri{width:0;height:0;border-left:5px solid transparent;
+  border-right:5px solid transparent;border-top:6px solid var(--g700);margin:0 auto}
+.meter-ticks{display:flex;justify-content:space-between;margin-top:2px}
+.meter-tick{font-size:.62rem;font-weight:700}
+.tick-bad{color:#b71c1c}.tick-mid{color:#e65100}.tick-good{color:#2e7d32}
+
+/* Indices row */
+.idx-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.idx-chip{border-radius:9px;padding:7px;text-align:center;
+  border:1.5px solid var(--border);background:#fff;cursor:pointer;transition:all .15s}
+.idx-chip:hover{border-color:var(--g500);background:var(--g50)}
+.idx-chip.active{border-color:var(--g600);background:var(--g100)}
+.idx-name{font-size:.62rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--light);margin-bottom:2px}
+.idx-val{font-size:.95rem;font-weight:800;color:var(--g700)}
+.idx-chip.active .idx-name{color:var(--g700)}
+
+/* Advisory */
+.adv-card{background:var(--g50);border:1.5px solid var(--g200);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.adv-icon{font-size:1.4rem;flex-shrink:0}
+.adv-title{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--g600);margin-bottom:4px}
+.adv-text{font-size:.8rem;line-height:1.55;color:var(--mid)}
+
+/* Lang toggle */
+.lang-row{display:flex;gap:6px}
+.lang-btn{background:var(--g50);border:1.5px solid var(--border);border-radius:8px;
+  padding:5px 12px;font-size:.75rem;font-weight:600;color:var(--mid);cursor:pointer;transition:all .15s}
+.lang-btn.active{background:var(--g600);color:#fff;border-color:var(--g600)}
+
+/* Correction telemetry */
+.telemetry{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;
+  padding:10px 12px;font-size:.72rem;color:#5d4037;line-height:1.6}
+.telemetry-title{font-weight:700;margin-bottom:4px;color:#795548}
+
+/* MAP AREA */
+.map-toolbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:8px 16px;display:flex;align-items:center;gap:10px;z-index:100;
+}
+.tb-label{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--light)}
+.layer-btns{display:flex;gap:5px;flex:1}
+.layer-btn{background:var(--g50);border:1.5px solid var(--border);border-radius:7px;
+  padding:5px 12px;font-size:.75rem;font-weight:700;color:var(--mid);cursor:pointer;transition:all .15s}
+.layer-btn:hover{background:var(--g100)}
+.layer-btn.active{background:var(--g600);color:#fff;border-color:var(--g600)}
+.area-label{font-size:.72rem;color:var(--light);white-space:nowrap}
+
+#map{flex:1;min-height:0}
+
+/* Spinner overlay on map */
+.map-spinner{position:absolute;inset:0;background:rgba(240,247,240,.8);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:2000;gap:12px;backdrop-filter:blur(2px)}
+.map-spinner.hidden{display:none}
+.map-spin-txt{font-size:.85rem;color:var(--g700);font-weight:600}
+
+/* Legend */
+.legend{position:absolute;bottom:28px;right:14px;z-index:1000;
+  background:rgba(255,255,255,.96);border:1px solid var(--border);
+  border-radius:10px;padding:10px 13px;min-width:150px;
+  box-shadow:0 2px 12px rgba(30,80,30,.12)}
+.legend-title{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--light);margin-bottom:6px}
+.legend-bar{height:12px;border-radius:6px;margin-bottom:4px}
+.legend-ticks{display:flex;justify-content:space-between}
+.legend-tick{font-size:.62rem;color:var(--light);font-weight:600}
+.legend-note{font-size:.62rem;color:var(--light);margin-top:5px;font-style:italic}
+
+/* sat strip */
+.sat-strip{background:var(--g900);padding:5px 16px;display:flex;gap:14px;align-items:center}
+.sat-item{font-size:.68rem;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:5px}
+.sat-dot{width:6px;height:6px;border-radius:50%;background:#69f0ae;box-shadow:0 0 5px #69f0ae}
+#satName{color:rgba(255,255,255,.9);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">🌾</div>
+  <div style="flex:1">
+    <div class="topbar-title">KVK_GeoAI_Demo</div>
+    <div class="topbar-sub">Krishi Vigyan Kendra · Farm Intelligence</div>
+  </div>
+  <div class="topbar-farmer" id="topbarName">Loading…</div>
+  <button class="btn-logout" onclick="logout()">Logout</button>
+</div>
+
+<div class="app">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+
+    <!-- Loading state -->
+    <div id="loadingState" class="s-section" style="padding:40px 20px;text-align:center;color:var(--light)">
+      <div class="spinner"></div>
+      <div id="loadingTxt" style="font-size:.85rem;font-weight:600">Contacting agents…</div>
+    </div>
+
+    <!-- Error state (hidden by default) -->
+    <div id="errorState" class="error-state" style="display:none"></div>
+
+    <!-- Content (hidden until loaded) -->
+    <div id="sidebarContent" style="display:none">
+
+      <!-- Farmer profile -->
+      <div class="s-section">
+        <div class="farmer-name" id="pcName"></div>
+        <div class="meta-chips" id="pcMeta"></div>
+      </div>
+
+      <!-- Info grid -->
+      <div class="s-section">
+        <div class="s-label">Plot Details</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="il">Phone</div><div class="iv" id="pcPhone"></div></div>
+          <div class="info-item"><div class="il">Variety</div><div class="iv" id="pcVariety"></div></div>
+          <div class="info-item"><div class="il">Transplanted</div><div class="iv" id="pcDate"></div></div>
+          <div class="info-item"><div class="il">Area</div><div class="iv" id="pcArea"></div></div>
+          <div class="info-item full"><div class="il">Address</div><div class="iv small" id="pcAddr"></div></div>
+        </div>
+      </div>
+
+      <!-- Health card -->
+      <div class="s-section">
+        <div class="s-label">Crop Health</div>
+        <div class="health-card" id="healthCard">
+          <div class="health-icon" id="healthIcon"></div>
+          <div>
+            <div class="health-label" id="healthLabel"></div>
+            <div class="health-sub" id="healthSub"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NDVI meter -->
+      <div class="s-section">
+        <div class="s-label">NDVI — Vegetation Index</div>
+        <div class="meter-bar-wrap">
+          <div class="meter-bg"></div>
+          <div class="meter-mask" id="meterMask" style="width:50%"></div>
+          <div class="meter-ptr" id="meterPtr" style="left:50%">
+            <div class="meter-bubble" id="meterBubble">0.000</div>
+            <div class="meter-tri"></div>
+          </div>
+        </div>
+        <div class="meter-ticks">
+          <span class="meter-tick tick-bad">Low</span>
+          <span class="meter-tick tick-mid">Moderate</span>
+          <span class="meter-tick tick-good">Healthy</span>
+        </div>
+      </div>
+
+      <!-- All indices -->
+      <div class="s-section">
+        <div class="s-label">All Indices (Mean)</div>
+        <div class="idx-row" id="idxRow"></div>
+        <div style="margin-top:8px;font-size:.65rem;color:var(--light)" id="idxSource"></div>
+      </div>
+
+      <!-- Language toggle -->
+      <div class="s-section">
+        <div class="s-label">Advisory Language</div>
+        <div class="lang-row">
+          <button class="lang-btn active" onclick="setLang('en',this)">English</button>
+          <button class="lang-btn" onclick="setLang('mr',this)">मराठी</button>
+          <button class="lang-btn" onclick="setLang('hi',this)">हिंदी</button>
+        </div>
+      </div>
+
+      <!-- Advisory -->
+      <div class="s-section">
+        <div class="s-label">Field Advisory</div>
+        <div class="adv-card">
+          <div class="adv-icon" id="advIcon"></div>
+          <div>
+            <div class="adv-title">Recommendation</div>
+            <div class="adv-text" id="advText"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coordinate telemetry -->
+      <div class="s-section" id="telemetrySection" style="display:none">
+        <div class="s-label">Coordinate Corrections</div>
+        <div class="telemetry" id="telemetryBox"></div>
+      </div>
+
+    </div><!-- end sidebarContent -->
+  </aside>
+
+  <!-- ── MAP AREA ── -->
+  <div class="map-area">
+
+    <div class="sat-strip">
+      <div class="sat-item"><div class="sat-dot"></div>Sentinel-2</div>
+      <div class="sat-item">GEE · black-octagon-291810</div>
+      <div class="sat-item">EPSG:4326</div>
+      <div class="sat-item" id="satName">—</div>
+    </div>
+
+    <div class="map-toolbar">
+      <div class="tb-label">Index Layer</div>
+      <div class="layer-btns">
+        <button class="layer-btn active" onclick="switchLayer('NDVI',this)">NDVI</button>
+        <button class="layer-btn" onclick="switchLayer('EVI',this)">EVI</button>
+        <button class="layer-btn" onclick="switchLayer('NDWI',this)">NDWI</button>
+        <button class="layer-btn" onclick="switchLayer('SAVI',this)">SAVI</button>
+        <button class="layer-btn" onclick="switchLayer('NONE',this)">Base only</button>
+      </div>
+      <div class="area-label" id="areaLabel"></div>
+    </div>
+
+    <div class="map-spinner" id="mapSpinner">
+      <div class="spinner"></div>
+      <div class="map-spin-txt" id="mapSpinTxt">Loading farm data…</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="legend">
+      <div class="legend-title" id="legendTitle">NDVI</div>
+      <div class="legend-bar" id="legendBar" style="background:linear-gradient(90deg,#d4e6a5,#74c476,#238b45,#00441b)"></div>
+      <div class="legend-ticks">
+        <span class="legend-tick">0.0</span>
+        <span class="legend-tick">0.5</span>
+        <span class="legend-tick">1.0</span>
+      </div>
+      <div class="legend-note" id="legendNote">Higher = denser vegetation</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Auth guard ────────────────────────────────────────────────────────────────
+const token = localStorage.getItem('kvk_token');
+const farmerName = localStorage.getItem('kvk_name');
+const farmerPhone = localStorage.getItem('kvk_phone');
+if(!token){ window.location.href = '/'; }
+
+document.getElementById('topbarName').textContent = farmerName || 'Farmer';
+
+function logout(){
+  localStorage.clear();
+  window.location.href = '/';
+}
+
+// ── Leaflet map ───────────────────────────────────────────────────────────────
+const map = L.map('map', {zoomControl:true}).setView([19.0, 75.5], 7);
+L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{
+  subdomains:['mt0','mt1','mt2','mt3'],
+  attribution:'Google Satellite',
+  maxZoom:21
+}).addTo(map);
+
+let polygonLayer = null;
+let overlayLayer = null;
+let farmData = null;
+let currentLayer = 'NDVI';
+let currentLang = 'en';
+
+// ── Colour helpers ────────────────────────────────────────────────────────────
+function ndviToHex(v){
+  const stops = [
+    [0.0,'#d4e6a5'],[0.25,'#a8d56a'],[0.45,'#74c476'],
+    [0.60,'#31a354'],[0.75,'#238b45'],[0.90,'#006d2c'],[1.0,'#00441b']
+  ];
+  v = Math.max(0,Math.min(1,v));
+  for(let i=1;i<stops.length;i++){
+    if(v<=stops[i][0]){
+      return lerpHex(stops[i-1][1],stops[i][1],(v-stops[i-1][0])/(stops[i][0]-stops[i-1][0]));
+    }
+  }
+  return stops[stops.length-1][1];
+}
+function lerpHex(a,b,t){
+  const p=c=>parseInt(c.slice(1),16);
+  const ar=(p(a)>>16)&0xff,ag=(p(a)>>8)&0xff,ab=p(a)&0xff;
+  const br=(p(b)>>16)&0xff,bg=(p(b)>>8)&0xff,bb=p(b)&0xff;
+  const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),bl=Math.round(ab+(bb-ab)*t);
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bl.toString(16).padStart(2,'0')}`;
+}
+
+const LAYER_META = {
+  NDVI:{grad:'linear-gradient(90deg,#d4e6a5,#74c476,#238b45,#00441b)',note:'Higher = denser vegetation',title:'NDVI'},
+  EVI: {grad:'linear-gradient(90deg,#e0f0ff,#90caf9,#1565c0,#0d47a1)',note:'Enhanced Vegetation Index',title:'EVI'},
+  NDWI:{grad:'linear-gradient(90deg,#fff9c4,#80cbc4,#00796b,#004d40)',note:'Plant water content',title:'NDWI'},
+  SAVI:{grad:'linear-gradient(90deg,#fce4ec,#f48fb1,#880e4f,#4a0020)',note:'Soil-adjusted vegetation',title:'SAVI'},
+  NONE:{grad:'linear-gradient(90deg,#ccc,#eee)',note:'Satellite base only',title:'Base map'},
+};
+
+// ── Overlay system: GEE tiles (real) OR canvas (mock fallback) ───────────────
+//
+// When GEE is authenticated:
+//   indices.tile_urls = { NDVI: "https://earthengine.googleapis.com/...", ... }
+//   → L.tileLayer() renders real per-pixel Sentinel-2 raster
+//   → Looks exactly like the shared images: smooth contoured green gradient
+//
+// When GEE is not authenticated (mock mode):
+//   indices.tile_urls = {}
+//   → Canvas fallback: uniform colour + noise, clearly labelled [mock]
+
+let maskLayer = null;
+
+function removeOverlay(){
+  if(overlayLayer){map.removeLayer(overlayLayer);overlayLayer=null;}
+  if(maskLayer){map.removeLayer(maskLayer);maskLayer=null;}
+}
+
+function applyGEETileLayer(tileUrl){
+  removeOverlay();
+  // Real GEE XYZ tile — percentile-stretched palette, per-pixel Sentinel-2
+  overlayLayer = L.tileLayer(tileUrl, {
+    opacity: 1.0,
+    maxZoom: 21,
+    tileSize: 256,
+    attribution: 'Google Earth Engine · Sentinel-2',
+  }).addTo(map);
+  // Dim mask outside the plot — world with farm plot as a hole
+  if(farmData && farmData.geometry){
+    const hole  = farmData.geometry.geojson.coordinates[0].map(c=>[c[1],c[0]]);
+    const world = [[-90,-180],[-90,180],[90,180],[90,-180],[-90,-180]];
+    maskLayer = L.polygon([world, hole], {
+      stroke: false,
+      fillColor: '#000',
+      fillOpacity: 0.42,
+      interactive: false,
+    }).addTo(map);
+  }
+}
+
+function applyCanvasOverlay(mean, indexName, bounds){
+  // Mock fallback — uniform colour + gaussian noise to show the ramp
+  // Replaced by real GEE tiles when authenticated
+  function seedRand(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646};}
+  const c=document.createElement('canvas');c.width=256;c.height=256;
+  const ctx=c.getContext('2d');
+  const img=ctx.createImageData(256,256);
+  const rng=seedRand(Math.round(mean*1000)+indexName.charCodeAt(0));
+  for(let i=0;i<256*256;i++){
+    // Spatial gradient: vary by pixel position for a more realistic look
+    const px=i%256, py=Math.floor(i/256);
+    const spatial=(Math.sin(px/30)*Math.cos(py/30)*0.08);
+    const noise=(rng()-0.5)*0.12;
+    const v=Math.max(0,Math.min(1,mean+noise+spatial));
+    let r,g,b;
+    if(indexName==='EVI'){
+      r=Math.round(224-211*v);g=Math.round(240-171*v);b=255;
+    } else if(indexName==='NDWI'){
+      r=Math.round(224*(1-v));g=Math.round(247-123*v);b=Math.round(250-202*v);
+    } else if(indexName==='SAVI'){
+      r=Math.round(252-202*v);g=Math.round(228-214*v);b=Math.round(236-204*v);
+    } else {
+      // NDVI green ramp matching the shared images
+      const hex=ndviToHex(v);const n=parseInt(hex.slice(1),16);
+      r=(n>>16)&0xff;g=(n>>8)&0xff;b=n&0xff;
+    }
+    img.data[i*4]=r;img.data[i*4+1]=g;img.data[i*4+2]=b;img.data[i*4+3]=190;
+  }
+  ctx.putImageData(img,0,0);
+  removeOverlay();
+  overlayLayer=L.imageOverlay(c.toDataURL(),bounds,{
+    opacity:0.78,interactive:false
+  }).addTo(map);
+}
+
+function drawIndexOverlay(name){
+  if(!farmData || !polygonLayer) return;
+  removeOverlay();
+  if(name==='NONE') return;
+
+  const tileUrls = farmData.indices.tile_urls || {};
+  const tileUrl  = tileUrls[name];
+
+  if(tileUrl){
+    // Real GEE tile — smooth per-pixel raster like the images
+    applyGEETileLayer(tileUrl);
+  } else {
+    // Mock fallback — canvas with colour ramp + noise
+    const val = farmData.indices[name] || 0.5;
+    applyCanvasOverlay(val, name, polygonLayer.getBounds());
+  }
+}
+
+// ── Layer switch ──────────────────────────────────────────────────────────────
+function switchLayer(name, btn){
+  currentLayer=name;
+  document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else document.querySelectorAll('.layer-btn').forEach(b=>{
+    if(b.textContent.trim()===name) b.classList.add('active');
+  });
+  const meta=LAYER_META[name]||LAYER_META.NDVI;
+  document.getElementById('legendTitle').textContent=meta.title;
+  document.getElementById('legendBar').style.background=meta.grad;
+  document.getElementById('legendNote').textContent=meta.note;
+  document.querySelectorAll('.idx-chip').forEach(c=>c.classList.toggle('active',c.dataset.idx===name));
+  drawIndexOverlay(name);
+}
+
+// ── NDVI meter position ───────────────────────────────────────────────────────
+function ndviToPct(v){
+  if(v<=0.4)return v/0.4*0.35;
+  if(v<=0.7)return 0.35+(v-0.4)/0.3*0.35;
+  return 0.70+(v-0.7)/0.3*0.30;
+}
+
+// ── Advisory language ─────────────────────────────────────────────────────────
+function setLang(lang, btn){
+  currentLang=lang;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(!farmData) return;
+  const adv=farmData.advisory;
+  document.getElementById('advText').textContent=
+    lang==='mr' ? adv.text_mr : lang==='hi' ? adv.text_hi : adv.text_en;
+}
+
+// ── Render farm data ──────────────────────────────────────────────────────────
+function render(data){
+  farmData=data;
+  const f=data.farmer, g=data.geometry, idx=data.indices, adv=data.advisory;
+
+  // Topbar
+  document.getElementById('topbarName').textContent=f.name;
+  document.getElementById('satName').textContent=f.name;
+  document.getElementById('areaLabel').textContent=g.area_ha+' ha';
+
+  // Sidebar — profile
+  document.getElementById('pcName').textContent=f.name;
+  document.getElementById('pcMeta').innerHTML=
+    `<div class="meta-chip">📍 ${f.address.split(',').slice(-2).join(',').trim()}</div>
+     <div class="meta-chip">📱 ${f.phone}</div>`;
+  document.getElementById('pcPhone').textContent=f.phone;
+  document.getElementById('pcVariety').textContent='Var. '+f.variety;
+  document.getElementById('pcDate').textContent=f.transplanted;
+  document.getElementById('pcArea').textContent=g.area_ha+' ha';
+  document.getElementById('pcAddr').textContent=f.address;
+
+  // Health
+  const ndvi=idx.NDVI||0;
+  const level = ndvi>=0.65?'healthy':ndvi>=0.40?'moderate':'poor';
+  const labels={healthy:'Healthy',moderate:'Moderate',poor:'Needs Attention'};
+  const subs={healthy:'Strong vegetative growth',moderate:'Some stress detected',poor:'Low vegetation health'};
+  const icons={healthy:'🌱',moderate:'⚠️',poor:'🚨'};
+  const hc=document.getElementById('healthCard');
+  hc.className='health-card '+level;
+  document.getElementById('healthIcon').textContent=icons[level];
+  const hl=document.getElementById('healthLabel');
+  hl.textContent=labels[level];hl.className='health-label '+level;
+  document.getElementById('healthSub').textContent=subs[level];
+
+  // Meter
+  const pct=ndviToPct(ndvi);
+  document.getElementById('meterMask').style.width=((1-pct)*100)+'%';
+  document.getElementById('meterPtr').style.left=(pct*100)+'%';
+  document.getElementById('meterBubble').textContent=ndvi.toFixed(3);
+
+  // Indices chips
+  const row=document.getElementById('idxRow');
+  row.innerHTML='';
+  ['NDVI','EVI','NDWI','SAVI'].forEach(k=>{
+    const chip=document.createElement('div');
+    chip.className='idx-chip'+(k===currentLayer?' active':'');
+    chip.dataset.idx=k;
+    chip.innerHTML=`<div class="idx-name">${k}</div><div class="idx-val">${(idx[k]||0).toFixed(3)}</div>`;
+    chip.onclick=()=>switchLayer(k,null);
+    row.appendChild(chip);
+  });
+  const dateRange = idx.date_range || '';
+  document.getElementById('idxSource').textContent=
+    idx.source==='gee'
+      ? 'Source: Google Earth Engine (live) · ' + dateRange
+      : 'Source: Simulated mock (run: earthengine authenticate)';
+
+  // Advisory
+  document.getElementById('advIcon').textContent=adv.icon;
+  document.getElementById('advText').textContent=adv.text_en;
+
+  // Coordinate telemetry
+  const corrections=g.corrections||[];
+  if(corrections.length>0){
+    const box=document.getElementById('telemetryBox');
+    box.innerHTML=`<div class="telemetry-title">Geometry source: ${g.source.toUpperCase()}</div>`+
+      corrections.map(c=>`• ${c}`).join('<br>');
+    document.getElementById('telemetrySection').style.display='block';
+  }
+
+  // Show sidebar
+  document.getElementById('loadingState').style.display='none';
+  document.getElementById('sidebarContent').style.display='block';
+
+  // Map: draw polygon and zoom
+  if(polygonLayer){map.removeLayer(polygonLayer);polygonLayer=null;}
+  polygonLayer=L.geoJSON(g.geojson,{
+    style:{color:'#00e676',weight:2.5,fillOpacity:0,dashArray:null}
+  }).addTo(map);
+  map.fitBounds(polygonLayer.getBounds(),{padding:[50,50],maxZoom:18});
+
+  // Draw index overlay — real GEE tiles if available, canvas if mock
+  drawIndexOverlay(currentLayer);
+
+  document.getElementById('mapSpinner').classList.add('hidden');
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadFarmData(){
+  const steps=['Authenticating…','Fetching farmer record…','Processing coordinates…','Computing indices…','Building response…'];
+  let si=0;
+  const interval=setInterval(()=>{
+    si=(si+1)%steps.length;
+    document.getElementById('loadingTxt').textContent=steps[si];
+    document.getElementById('mapSpinTxt').textContent=steps[si];
+  },900);
+
+  try{
+    const res=await fetch('/api/farm/me',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    clearInterval(interval);
+    if(!res.ok){
+      const err=await res.json();
+      throw new Error(err.detail||'Server error');
+    }
+    const data=await res.json();
+    render(data);
+  }catch(err){
+    clearInterval(interval);
+    document.getElementById('loadingState').style.display='none';
+    document.getElementById('mapSpinner').classList.add('hidden');
+    const errEl=document.getElementById('errorState');
+    errEl.style.display='block';
+    errEl.textContent='Error: '+err.message;
+  }
+}
+
+loadFarmData();
+</script>
+</body>
+</html>
