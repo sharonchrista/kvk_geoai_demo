@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>KVK GeoAI Demo — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g900:#0d3b1a;--g800:#1a5e2a;--g700:#236b30;--g600:#2e7d32;
+  --g500:#388e3c;--g300:#81c784;--g200:#c8e6c9;--g100:#e8f5e9;--g50:#f1f8f2;
+  --text:#1a2e1a;--mid:#3a5c3a;--light:#6a8e6a;--err:#b71c1c;--errL:#ffebee;
+}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:linear-gradient(160deg,var(--g900) 0%,var(--g700) 55%,var(--g500) 100%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.card{
+  background:#fff;border-radius:20px;padding:40px 36px;
+  width:100%;max-width:420px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+}
+.logo-row{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.logo{width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,var(--g800),var(--g500));
+  display:flex;align-items:center;justify-content:center;font-size:26px}
+.logo-text h1{font-size:1.3rem;font-weight:700;color:var(--g800);line-height:1.1}
+.logo-text p{font-size:.75rem;color:var(--light);margin-top:2px}
+
+.section-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--light);margin-bottom:8px}
+
+.input-wrap{
+  background:#fff;border:2px solid var(--g200);border-radius:12px;
+  display:flex;align-items:center;gap:0;overflow:hidden;
+  transition:border-color .2s;margin-bottom:6px;
+}
+.input-wrap:focus-within{border-color:var(--g500)}
+.input-prefix{
+  padding:0 14px;font-size:.95rem;font-weight:600;color:var(--mid);
+  border-right:2px solid var(--g200);height:100%;
+  display:flex;align-items:center;background:var(--g50);
+  user-select:none;white-space:nowrap;
+}
+.phone-input{
+  flex:1;border:none;outline:none;padding:14px 14px;
+  font-size:1.1rem;font-weight:700;color:var(--text);
+  font-family:'DM Sans',sans-serif;letter-spacing:.04em;
+  background:transparent;
+}
+.phone-input::placeholder{font-weight:400;color:#bbb;letter-spacing:0}
+
+.hint{font-size:.75rem;color:var(--light);margin-bottom:22px;padding-left:2px}
+
+.btn-login{
+  width:100%;padding:15px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,var(--g800),var(--g500));
+  color:#fff;font-size:1rem;font-weight:700;
+  cursor:pointer;transition:opacity .2s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-login:hover{opacity:.92;transform:translateY(-1px)}
+.btn-login:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+.spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.4);
+  border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error-box{
+  background:var(--errL);border:1px solid rgba(183,28,28,.25);
+  border-radius:10px;padding:10px 14px;
+  font-size:.82rem;color:var(--err);font-weight:500;
+  margin-bottom:16px;display:none;align-items:center;gap:8px;
+}
+.error-box.show{display:flex}
+
+.farmers-hint{
+  margin-top:24px;padding:14px;
+  background:var(--g50);border:1px solid var(--g200);border-radius:12px;
+}
+.farmers-hint-label{font-size:.68rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--light);margin-bottom:8px}
+.chip-grid{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  background:#fff;border:1.5px solid var(--g200);border-radius:20px;
+  padding:5px 12px;font-size:.72rem;font-weight:600;color:var(--g700);
+  cursor:pointer;transition:all .15s;
+}
+.chip:hover{background:var(--g600);color:#fff;border-color:var(--g600)}
+
+.footer{margin-top:20px;text-align:center;font-size:.7rem;color:var(--light)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-row">
+    <div class="logo">🌾</div>
+    <div class="logo-text">
+      <h1>KVK_GeoAI_Demo</h1>
+      <p>Krishi Vigyan Kendra · Farm Intelligence Platform</p>
+    </div>
+  </div>
+
+  <div class="section-label">Farmer Phone Number</div>
+
+  <div class="input-wrap">
+    <div class="input-prefix">🇮🇳 +91</div>
+    <input class="phone-input" id="phoneInput"
+           type="tel" maxlength="10" placeholder="10-digit mobile number"
+           autocomplete="tel"/>
+  </div>
+  <div class="hint">Enter your registered phone number to access your farm dashboard</div>
+
+  <div class="error-box" id="errorBox">
+    <span>⚠️</span><span id="errorMsg"></span>
+  </div>
+
+  <button class="btn-login" id="loginBtn" onclick="doLogin()">
+    <span id="btnLabel">View My Farm →</span>
+    <div class="spinner" id="spinner" style="display:none"></div>
+  </button>
+
+  <div class="farmers-hint">
+    <div class="farmers-hint-label">Demo Farmers — click to fill</div>
+    <div class="chip-grid" id="chipGrid"></div>
+  </div>
+
+  <div class="footer">KVK · Kharif 2024 · Demo System</div>
+</div>
+
+<script>
+const FARMERS = [
+  {name:"Baban Thorat",       phone:"9272723049"},
+  {name:"Yuvraj Warake",      phone:"9421206400"},
+  {name:"Ganpat Shinde",      phone:"9421147626"},
+  {name:"Mahendra Thorat",    phone:"9890805512"},
+  {name:"Mahendra Salunkhe",  phone:"9850820992"},
+  {name:"Shivaji Rajmane",    phone:"9422406360"},
+  {name:"Prashant Kodule",    phone:"9049212299"},
+  {name:"Sachin Salunkhe",    phone:"9604466771"},
+  {name:"Swapnil Bhosale",    phone:"8805508334"},
+  {name:"Bharat Bhosale",     phone:"9657468707"},
+];
+
+const grid = document.getElementById('chipGrid');
+FARMERS.forEach(f=>{
+  const c = document.createElement('div');
+  c.className = 'chip';
+  c.textContent = f.name;
+  c.onclick = () => {
+    document.getElementById('phoneInput').value = f.phone;
+    clearError();
+  };
+  grid.appendChild(c);
+});
+
+document.getElementById('phoneInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') doLogin();
+});
+
+function clearError(){
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+function showError(msg){
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorBox').classList.add('show');
+}
+
+function setLoading(on){
+  document.getElementById('loginBtn').disabled = on;
+  document.getElementById('btnLabel').style.display = on ? 'none' : '';
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+}
+
+async function doLogin(){
+  clearError();
+  const phone = document.getElementById('phoneInput').value.trim();
+  if(!/^\d{10}$/.test(phone)){
+    showError('Please enter a valid 10-digit phone number.');
+    return;
+  }
+  setLoading(true);
+  try{
+    const res = await fetch('/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({phone}),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      showError(data.detail || 'Login failed. Phone not registered.');
+      return;
+    }
+    // Store token and farmer info
+    localStorage.setItem('kvk_token', data.access_token);
+    localStorage.setItem('kvk_name',  data.name);
+    localStorage.setItem('kvk_phone', data.phone);
+    window.location.href = '/dashboard';
+  } catch(err){
+    showError('Network error — is the server running?');
+  } finally{
+    setLoading(false);
+  }
+}
+</script>
+</body>
+</html>

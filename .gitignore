@@ -1,0 +1,17 @@
+# Environments
+venv/
+env/
+.env
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local data / Temp files
+src/data/kml/*.kml
+src/data/*.xls
+*.xlsx
+
+# Mac OS
+.DS_Store
