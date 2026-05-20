@@ -129,12 +129,7 @@ async def run(phone: str, session: AsyncSession) -> dict:
             "source":      geometry_result["source"],
             "corrections": geometry_result.get("corrections", []),
         },
-        "indices": {
-            "NDVI":   indices_result.get("NDVI"),
-            "EVI":    indices_result.get("EVI"),
-            "NDWI":   indices_result.get("NDWI"),
-            "SAVI":   indices_result.get("SAVI"),
-            "source": indices_result["source"],
-        },
+        # Pass the entire dictionary through so capture_date and base64_images aren't lost!
+        "indices": indices_result,
         "advisory": adv,
     }

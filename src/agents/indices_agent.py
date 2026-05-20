@@ -122,6 +122,18 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
     stats = _get_real_statistics(geojson_polygon, token, start, end)
     logger.info("CDSE Statistics API successfully extracted dynamic ranges.")
 
+    # Extract the exact capture date found by the Stats API
+    capture_date = stats.get("capture_date")
+    
+    # If we found a valid date, lock the image request to that specific day
+    # so the PNG perfectly matches the statistics.
+    if capture_date:
+        time_from = f"{capture_date}T00:00:00Z"
+        time_to = f"{capture_date}T23:59:59Z"
+    else:
+        time_from = f"{start}T00:00:00Z"
+        time_to = f"{end}T23:59:59Z"
+
     # 2. GENERATE IMAGES WITH DYNAMIC STRETCHING
     bbox = _get_bounding_box(geojson_polygon)
     base64_images = {}
@@ -144,7 +156,7 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
             payload = {
                 "input": {
                     "bounds": {"bbox": bbox, "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}},
-                    "data": [{"type": "sentinel-2-l2a", "dataFilter": {"timeRange": {"from": f"{start}T00:00:00Z", "to": f"{end}T23:59:59Z"}, "maxCloudCoverage": 20}}]
+                    "data": [{"type": "sentinel-2-l2a", "dataFilter": {"timeRange": {"from": time_from, "to": time_to}, "maxCloudCoverage": 20}}]
                 },
                 "output": {"width": 512, "height": 512, "responses": [{"identifier": "default", "format": {"type": "image/png"}}]},
                 "evalscript": custom_evalscript
@@ -156,9 +168,10 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
 
     return {
         "NDVI": stats["NDVI"], "EVI": stats["EVI"], "NDWI": stats["NDWI"], "SAVI": stats["SAVI"],
+        "capture_date": capture_date,  # Exposed for the client
         "base64_images": base64_images,
         "source": "cdse_processing_api",
-        "date_range": f"{start} -> {end}"
+        "search_window": f"{start} -> {end}"
     }
 
 def _get_real_statistics(geojson_polygon: dict, token: str, start: str, end: str) -> dict:
@@ -228,7 +241,13 @@ def _get_real_statistics(geojson_polygon: dict, token: str, start: str, end: str
             for interval in reversed(data.get("data", [])):
                 outputs = interval.get("outputs")
                 if outputs and outputs["ndvi"]["bands"]["B0"]["stats"]["sampleCount"] > 0:
+                    
+                    # Extract the date from the interval payload
+                    raw_time = interval.get("interval", {}).get("from", "")
+                    capture_date = raw_time.split("T")[0] if "T" in raw_time else raw_time
+
                     return {
+                        "capture_date": capture_date, 
                         "NDVI": round(outputs["ndvi"]["bands"]["B0"]["stats"]["mean"], 3),
                         "NDVI_min": outputs["ndvi"]["bands"]["B0"]["stats"]["min"],
                         "NDVI_max": outputs["ndvi"]["bands"]["B0"]["stats"]["max"],
@@ -243,11 +262,11 @@ def _get_real_statistics(geojson_polygon: dict, token: str, start: str, end: str
                         "SAVI_max": outputs["savi"]["bands"]["B0"]["stats"]["max"]
                     }
                     
-            return {"NDVI": 0.0, "EVI": 0.0, "NDWI": 0.0, "SAVI": 0.0}
+            return {"capture_date": None, "NDVI": 0.0, "EVI": 0.0, "NDWI": 0.0, "SAVI": 0.0}
             
     except Exception as e:
         logger.error(f"CDSE Statistics API failed: {e}")
-        return {"NDVI": 0.0, "EVI": 0.0, "NDWI": 0.0, "SAVI": 0.0}
+        return {"capture_date": None, "NDVI": 0.0, "EVI": 0.0, "NDWI": 0.0, "SAVI": 0.0}
 
 def _mock_indices(geojson_polygon: dict) -> dict:
     coords = geojson_polygon["coordinates"][0]
@@ -257,7 +276,8 @@ def _mock_indices(geojson_polygon: dict) -> dict:
     def pseudo(shift, lo, hi): return round(lo + ((h >> shift) & 0xFFFF) / 0xFFFF * (hi - lo), 3)
     ndvi = pseudo(0, 0.38, 0.87)
     return {
+        "capture_date": date.today().strftime("%Y-%m-%d"), 
         "NDVI": round(ndvi, 3), "EVI": round(pseudo(4, ndvi * 0.75, ndvi * 0.95), 3),
         "NDWI": round(pseudo(8, -0.05, 0.38), 3), "SAVI": round(pseudo(12, ndvi * 0.65, ndvi * 0.85), 3),
-        "base64_images": {}, "source": "mock", "date_range": "mock"
+        "base64_images": {}, "source": "mock", "search_window": "mock"
     }

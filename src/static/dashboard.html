@@ -169,6 +169,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sat-dot{width:6px;height:6px;border-radius:50%;background:#69f0ae;box-shadow:0 0 5px #69f0ae}
 #satName{color:rgba(255,255,255,.9);font-weight:600}
 
+/* CAPTURE DATE UI (NEW) */
+.capture-date-ui{
+  margin-left:auto; 
+  color:#69f0ae; 
+  font-weight:700; 
+  letter-spacing:0.03em;
+  background: rgba(105, 240, 174, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(105, 240, 174, 0.3);
+}
+
 /* GEOMETRY DETAIL MARKERS */
 .corner-marker {
   background: #fff; border: 2.5px solid #00e676; border-radius: 50%;
@@ -301,6 +313,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="sat-item">Copernicus · CDSE Processing API</div>
       <div class="sat-item">EPSG:4326</div>
       <div class="sat-item" id="satName">—</div>
+      <div class="sat-item capture-date-ui" id="satCaptureDate"></div> 
     </div>
 
     <div class="map-toolbar">
@@ -524,7 +537,23 @@ function render(data){
     row.appendChild(chip);
   });
   
-  document.getElementById('idxSource').textContent= idx.source.includes('cdse') ? 'Source: Copernicus CDSE (Processing API) · ' + (idx.date_range||'') : 'Source: Simulated mock (CDSE disconnected)';
+  // EXTRACT CAPTURE DATE AND UPDATE UI
+  const capDate = (idx && idx.capture_date) ? idx.capture_date : 'N/A';
+  
+  // Update Header Sat-Strip Text
+  const satCapEl = document.getElementById('satCaptureDate');
+  if(capDate !== 'N/A') {
+    satCapEl.textContent = 'Captured: ' + capDate;
+    satCapEl.style.display = 'block';
+  } else {
+    satCapEl.style.display = 'none';
+  }
+
+  // Update Sidebar Source Note
+  document.getElementById('idxSource').textContent = (idx && idx.source && idx.source.includes('cdse')) 
+    ? `Image Captured: ${capDate} | Source: Copernicus CDSE (Processing API)` 
+    : 'Source: Simulated mock (CDSE disconnected)';
+
   document.getElementById('advIcon').textContent=adv.icon;
   document.getElementById('advText').textContent=adv.text_en;
 
