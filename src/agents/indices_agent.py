@@ -76,21 +76,54 @@ def _generate_dynamic_evalscript(index_name: str, min_val: float, max_val: float
           [0.0, 0.0, 0.2, 1], // Open Water
           [0.0, 0.0, 0.2, 1]  // Cap
         ]"""
-    else:
-        # Vegetation Palette (NDVI, EVI, SAVI): Brown (Soil) -> Yellow -> Greens (Healthy)
+    elif index_name == "EVI":
+        # High Biomass Palette: Mint -> Bright Green -> Deep Teal
+        # (EVI focuses on dense canopies, teal helps distinguish high density)
         color_array = """[
-          [0.1, 0.2, 0.4, 1], // Water / Non-Veg
-          [0.6, 0.4, 0.2, 1], // Bare Soil
-          [0.8, 0.5, 0.1, 1], // Very Low
-          [0.9, 0.7, 0.1, 1], // Low
-          [1.0, 0.9, 0.2, 1], // Moderately Low
-          [0.7, 0.9, 0.2, 1], // Moderate
-          [0.5, 0.8, 0.2, 1], // Moderately High
-          [0.3, 0.7, 0.2, 1], // High
-          [0.1, 0.5, 0.1, 1], // Very High
-          [0.0, 0.4, 0.0, 1], // Dense Healthy
-          [0.0, 0.2, 0.0, 1], // Extremely Dense
-          [0.0, 0.2, 0.0, 1]  // Cap
+          [1.0, 0.9, 0.8, 1], // Bare Soil (Pale Sand)
+          [0.8, 1.0, 0.8, 1], // Very Low (Pale Mint)
+          [0.5, 1.0, 0.7, 1], // Low (Mint)
+          [0.3, 0.9, 0.5, 1], // Moderately Low (Light Green)
+          [0.1, 0.8, 0.4, 1], // Moderate (Green)
+          [0.0, 0.7, 0.4, 1], // Moderately High (Emerald)
+          [0.0, 0.6, 0.5, 1], // High (Teal)
+          [0.0, 0.5, 0.5, 1], // Very High (Dark Teal)
+          [0.0, 0.4, 0.6, 1], // Dense (Blue-Green)
+          [0.0, 0.3, 0.5, 1], // Extremely Dense (Dark Blue-Green)
+          [0.0, 0.2, 0.4, 1], // Saturation Cap
+          [0.0, 0.2, 0.4, 1]
+        ]"""
+    elif index_name == "SAVI":
+        # Soil Adjusted Palette (Matches Frontend Legend): White -> Pink -> Dark Purple
+        color_array = """[
+          [1.0, 1.0, 1.0, 1],    // 0.0 (Bare Soil - White)
+          [0.95, 0.8, 0.9, 1],   // Light Pink
+          [0.9, 0.6, 0.8, 1],    // Pink
+          [0.85, 0.4, 0.7, 1],   // Darker Pink
+          [0.8, 0.2, 0.6, 1],    // Magenta-Pink
+          [0.75, 0.1, 0.5, 1],   // Magenta (~0.5)
+          [0.6, 0.0, 0.4, 1],    // Dark Magenta
+          [0.5, 0.0, 0.35, 1],   // Purple
+          [0.4, 0.0, 0.3, 1],    // Dark Purple
+          [0.3, 0.0, 0.25, 1],   // Very Dark Purple
+          [0.2, 0.0, 0.2, 1],    // 1.0 (High Veg - Deepest Purple)
+          [0.2, 0.0, 0.2, 1]     // Cap
+        ]"""
+    else:
+        # NDVI (Default): Classic Vegetation Palette: Red -> Yellow -> Green
+        color_array = """[
+          [0.8, 0.0, 0.0, 1], // Severe Stress/Water (Dark Red)
+          [1.0, 0.2, 0.0, 1], // High Stress (Red)
+          [1.0, 0.5, 0.0, 1], // Moderate Stress (Orange)
+          [1.0, 0.8, 0.0, 1], // Low Veg (Yellow-Orange)
+          [1.0, 1.0, 0.0, 1], // Early Growth (Yellow)
+          [0.8, 1.0, 0.0, 1], // Moderate Veg (Yellow-Green)
+          [0.6, 0.9, 0.0, 1], // Good Veg (Light Green)
+          [0.4, 0.8, 0.0, 1], // Healthy (Medium Green)
+          [0.2, 0.6, 0.0, 1], // Very Healthy (Green)
+          [0.0, 0.5, 0.0, 1], // Dense Canopy (Dark Green)
+          [0.0, 0.3, 0.0, 1], // Extremely Dense (Very Dark Green)
+          [0.0, 0.3, 0.0, 1]
         ]"""
 
     return f"""
@@ -122,11 +155,7 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
     stats = _get_real_statistics(geojson_polygon, token, start, end)
     logger.info("CDSE Statistics API successfully extracted dynamic ranges.")
 
-    # Extract the exact capture date found by the Stats API
     capture_date = stats.get("capture_date")
-    
-    # If we found a valid date, lock the image request to that specific day
-    # so the PNG perfectly matches the statistics.
     if capture_date:
         time_from = f"{capture_date}T00:00:00Z"
         time_to = f"{capture_date}T23:59:59Z"
@@ -134,8 +163,7 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
         time_from = f"{start}T00:00:00Z"
         time_to = f"{end}T23:59:59Z"
 
-    # 2. GENERATE IMAGES WITH DYNAMIC STRETCHING
-    bbox = _get_bounding_box(geojson_polygon)
+    # 2. GENERATE IMAGES WITH DYNAMIC STRETCHING AND POLYGON CLIPPING
     base64_images = {}
     url = "https://sh.dataspace.copernicus.eu/api/v1/process"
     headers = {
@@ -144,7 +172,6 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
         "Accept": "image/png"
     }
     
-    # Process all four specific layers
     layers_to_process = ["NDVI", "EVI", "NDWI", "SAVI"]
     
     with httpx.Client(timeout=20.0) as client:
@@ -155,10 +182,29 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
 
             payload = {
                 "input": {
-                    "bounds": {"bbox": bbox, "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}},
-                    "data": [{"type": "sentinel-2-l2a", "dataFilter": {"timeRange": {"from": time_from, "to": time_to}, "maxCloudCoverage": 20}}]
+                    "bounds": {
+                        "geometry": geojson_polygon, 
+                        "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}
+                    },
+                    "data": [
+                        {
+                            "type": "sentinel-2-l2a", 
+                            "dataFilter": {
+                                "timeRange": {"from": time_from, "to": time_to}, 
+                                "maxCloudCoverage": 20
+                            },
+                            "processing": {
+                                "upsampling": "BILINEAR",
+                                "downsampling": "BILINEAR"
+                            }
+                        }
+                    ]
                 },
-                "output": {"width": 512, "height": 512, "responses": [{"identifier": "default", "format": {"type": "image/png"}}]},
+                "output": {
+                    "width": 1024, 
+                    "height": 1024, 
+                    "responses": [{"identifier": "default", "format": {"type": "image/png"}}]
+                },
                 "evalscript": custom_evalscript
             }
             
@@ -168,7 +214,7 @@ def _cdse_indices(geojson_polygon: dict) -> dict:
 
     return {
         "NDVI": stats["NDVI"], "EVI": stats["EVI"], "NDWI": stats["NDWI"], "SAVI": stats["SAVI"],
-        "capture_date": capture_date,  # Exposed for the client
+        "capture_date": capture_date,
         "base64_images": base64_images,
         "source": "cdse_processing_api",
         "search_window": f"{start} -> {end}"

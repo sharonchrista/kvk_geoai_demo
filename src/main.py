@@ -75,6 +75,11 @@ async def serve_dashboard():
     return FileResponse(str(_STATIC_DIR / "dashboard.html"))
 
 
+@app.get("/admin", include_in_schema=False)
+async def serve_admin():
+    return FileResponse(str(_STATIC_DIR / "admin.html"))
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.get("/health", tags=["System"])
 async def health():

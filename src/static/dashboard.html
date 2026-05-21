@@ -352,13 +352,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Auth guard ────────────────────────────────────────────────────────────────
+// ── Auth & URL Check ──────────────────────────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const adminPhoneParam = urlParams.get('phone');
+
 const token = localStorage.getItem('kvk_token');
 const farmerName = localStorage.getItem('kvk_name');
 const farmerPhone = localStorage.getItem('kvk_phone');
-if(!token){ window.location.href = '/'; }
 
-document.getElementById('topbarName').textContent = farmerName || 'Farmer';
+// If there's no token AND no admin phone parameter, bounce them to login
+if(!token && !adminPhoneParam){ window.location.href = '/'; }
+
+// If we are in Admin view, update the topbar to reflect that
+if (adminPhoneParam) {
+    document.getElementById('topbarName').textContent = 'Admin View: ' + adminPhoneParam;
+} else {
+    document.getElementById('topbarName').textContent = farmerName || 'Farmer';
+}
 
 function logout(){
   localStorage.clear();
@@ -504,7 +514,10 @@ function render(data){
   farmData=data;
   const f=data.farmer, g=data.geometry, idx=data.indices, adv=data.advisory;
 
-  document.getElementById('topbarName').textContent=f.name;
+  // We set the topbarName previously, keep it that way if in Admin mode
+  if (!adminPhoneParam) {
+    document.getElementById('topbarName').textContent=f.name;
+  }
   document.getElementById('satName').textContent=f.name;
   document.getElementById('areaLabel').textContent=g.area_ha+' ha';
 
@@ -634,9 +647,18 @@ async function loadFarmData(){
   },900);
 
   try{
-    const res=await fetch('/api/farm/me',{ headers:{'Authorization':'Bearer '+token} });
+    // Decide the correct API URL based on whether we have an admin phone parameter
+    const fetchUrl = adminPhoneParam ? `/api/farm/${adminPhoneParam}` : '/api/farm/me';
+    
+    // Set headers (admin route technically doesn't need auth, but it doesn't hurt)
+    const headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res=await fetch(fetchUrl, { headers });
     clearInterval(interval);
+    
     if(!res.ok){ const err=await res.json(); throw new Error(err.detail||'Server error'); }
+    
     const data=await res.json();
     render(data);
   }catch(err){

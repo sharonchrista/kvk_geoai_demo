@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KVK GeoAI - Admin Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'DM Sans', sans-serif; background: #f0f7f0; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .topbar { position: fixed; top: 0; width: 100%; background: linear-gradient(135deg, #0d3b1a, #236b30); height: 60px; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 2px 12px rgba(0,0,0,.3); box-sizing: border-box; }
+        .topbar-logo { font-size: 22px; margin-right: 14px; }
+        .topbar-title { font-size: 1.15rem; font-weight: 700; color: #fff; }
+        
+        .search-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); width: 100%; max-width: 500px; box-sizing: border-box; margin-top: 60px; border: 1px solid #d4e8d4; }
+        h1 { color: #1a5e2a; margin-top: 0; font-size: 1.5rem; text-align: center; margin-bottom: 8px; }
+        p { text-align: center; color: #6a8e6a; font-size: 0.9rem; margin-bottom: 24px; }
+        
+        .input-group { position: relative; margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 14px 16px; border: 2px solid #d4e8d4; border-radius: 8px; font-size: 1rem; outline: none; box-sizing: border-box; transition: border-color 0.2s; font-family: 'DM Sans', sans-serif;}
+        input[type="text"]:focus { border-color: #4caf50; }
+        
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d4e8d4; border-top: none; border-radius: 0 0 8px 8px; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .autocomplete-item { padding: 12px 16px; cursor: pointer; font-size: 0.95rem; border-bottom: 1px solid #f0f7f0; display: flex; justify-content: space-between; align-items: center;}
+        .autocomplete-item:hover { background: #e8f5e9; color: #1a5e2a; }
+        
+        .result-card { display: none; background: #f9fbf9; border: 1px solid #d4e8d4; border-radius: 8px; padding: 20px; margin-top: 20px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .result-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.9rem; border-bottom: 1px dashed #d4e8d4; padding-bottom: 8px;}
+        .result-row:last-child { border-bottom: none; }
+        .result-label { color: #6a8e6a; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; align-self: flex-start;}
+        .result-value { color: #1a2e1a; font-weight: 600; text-align: right; max-width: 65%; line-height: 1.4;}
+        
+        .btn { display: block; width: 100%; padding: 14px; background: #2e7d32; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: 700; margin-top: 20px; transition: background 0.2s; font-size: 1rem; box-sizing: border-box; border: none; cursor: pointer;}
+        .btn:hover { background: #1b5e20; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-logo">🌾</div>
+    <div class="topbar-title">Admin Portal</div>
+</div>
+
+<div class="search-container">
+    <h1>Find Farmer Record</h1>
+    <p>Search by farmer name or registered phone number</p>
+    
+    <div class="input-group">
+        <input type="text" id="searchInput" placeholder="e.g. Baban Krushna or 92727..." autocomplete="off">
+        <div id="autocompleteList" class="autocomplete-list"></div>
+    </div>
+
+    <div id="resultCard" class="result-card">
+        <div class="result-row">
+            <span class="result-label">Full Name</span>
+            <span class="result-value" id="resName">-</span>
+        </div>
+        <div class="result-row">
+            <span class="result-label">Phone</span>
+            <span class="result-value" id="resPhone">-</span>
+        </div>
+        <div class="result-row">
+            <span class="result-label">Variety</span>
+            <span class="result-value" id="resVariety">-</span>
+        </div>
+        <div class="result-row" style="border-bottom:none">
+            <span class="result-label">Address</span>
+            <span class="result-value" id="resAddress">-</span>
+        </div>
+        
+        <a href="#" id="viewFarmBtn" class="btn" target="_blank">Open Farm Dashboard</a>
+    </div>
+</div>
+
+<script>
+    let farmersData = [];
+
+    // 1. Fetch all farmers quietly in the background on load
+    async function fetchFarmers() {
+        try {
+            const res = await fetch('/api/farm/all');
+            const data = await res.json();
+            farmersData = data.farmers || [];
+        } catch (error) {
+            console.error("Failed to load farmers list:", error);
+        }
+    }
+
+    fetchFarmers();
+
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
+    const resultCard = document.getElementById('resultCard');
+
+    // 2. Filter functionality as the admin types
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        autocompleteList.innerHTML = '';
+        resultCard.style.display = 'none';
+
+        if (!query) return;
+
+        // Search by name OR phone number
+        const matches = farmersData.filter(f => 
+            f.name.toLowerCase().includes(query) || 
+            f.phone.includes(query)
+        );
+
+        matches.forEach(farmer => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `
+                <strong>${farmer.name}</strong> 
+                <span style="color:#6a8e6a;font-size:0.8rem;background:#e8f5e9;padding:2px 6px;border-radius:4px;">${farmer.phone}</span>
+            `;
+            
+            // When a farmer is clicked, populate the card
+            div.addEventListener('click', () => {
+                searchInput.value = farmer.name;
+                autocompleteList.innerHTML = '';
+                showFarmerCard(farmer);
+            });
+            autocompleteList.appendChild(div);
+        });
+    });
+
+    // 3. Display the selected farmer's details
+    function showFarmerCard(farmer) {
+        document.getElementById('resName').textContent = farmer.name;
+        document.getElementById('resPhone').textContent = farmer.phone;
+        document.getElementById('resVariety').textContent = farmer.variety ? 'Var. ' + farmer.variety : 'N/A';
+        document.getElementById('resAddress').textContent = farmer.address || 'N/A';
+        
+        // Link the button to the dynamic dashboard route we built earlier
+        document.getElementById('viewFarmBtn').href = `/dashboard?phone=${farmer.phone}`;
+        resultCard.style.display = 'block';
+    }
+
+    // Close the dropdown if the admin clicks outside the search box
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput) {
+            autocompleteList.innerHTML = '';
+        }
+    });
+</script>
+</body>
+</html>
